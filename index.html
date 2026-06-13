@@ -385,68 +385,10 @@
             right: 24px;
         }
 
-        .player-info-overlay .live-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--danger);
-            color: white;
-            font-size: 0.7rem;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-weight: 700;
-        }
-
-        .player-info-overlay .live-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--danger);
-            color: white;
-            font-size: 0.7rem;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-weight: 700;
-            transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
-        }
-
-        .player-info-overlay .live-badge-text {
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            display: inline-block;
-        }
-
-        .player-info-overlay .live-badge.live-pulse {
-            box-shadow: 0 0 16px rgba(255, 80, 80, 0.35);
-            transform: scale(1.02);
-            background: #ff4f6c;
-        }
-
-        .video-js .player-live-label {
-            bottom: 72px;
-        }
-
-        .vjs-fullscreen .player-live-label {
-            left: 20px;
-            bottom: 24px;
-        }
-
-        @media (max-width: 768px) {
-            .player-live-label {
-                left: 12px;
-                bottom: 64px;
-                padding: 5px 10px;
-                font-size: 0.72rem;
-            }
-        }
-
-        .player-info-overlay .live-badge i {
-            font-size: 0.55rem;
-            color: white;
-            display: inline-block;
-            transform-origin: center;
-            /* subtle glow */
-            text-shadow: 0 0 6px rgba(255,80,80,0.6);
+        .player-info-overlay .channel-details-overlay {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
         }
 
 
@@ -820,35 +762,6 @@
                 background: rgba(0, 0, 0, 0.6);
                 color: var(--text-primary);
             }
-
-            .video-js .vjs-current-time-display.live-timestamp,
-            .video-js .vjs-current-time.live-timestamp {
-                color: transparent !important;
-                position: relative;
-                overflow: visible;
-                text-shadow: none !important;
-            }
-
-            .video-js .vjs-current-time-display.live-timestamp *,
-            .video-js .vjs-current-time.live-timestamp * {
-                color: transparent !important;
-                text-shadow: none !important;
-            }
-
-            .video-js .vjs-current-time-display.live-timestamp::after,
-            .video-js .vjs-current-time.live-timestamp::after {
-                content: 'LIVE';
-                position: absolute;
-                inset: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: var(--accent);
-                font-weight: 700;
-                text-shadow: 0 0 6px rgba(108, 92, 231, 0.45);
-                letter-spacing: 0.05em;
-                white-space: nowrap;
-            }
         }
 
         .sidebar-search {
@@ -1074,13 +987,6 @@
                 <!-- <div class="player-brand-overlay" id="playerBrandOverlay">
                     <img src="assets/win-tv-logo.png" alt="Brand" />
                 </div> -->
-                <div class="player-info-overlay">
-                    <div class="live-badge" style="display:none;">
-                        <i class="fas fa-circle"></i>
-                        <span class="live-badge-text">LIVE</span>
-                    </div>
-                </div>
-                <div class="player-live-label" id="playerLiveLabel" style="display:none;">LIVE</div>
                 <div class="quality-control" id="qualityControl" style="display:none;">
                     <select id="qualitySelect" aria-label="Quality"></select>
                 </div>
@@ -1166,23 +1072,7 @@ http://cdn.tv-rds.workers.dev/TYCSPT.m3u8
     }
 
     const removedChannelKeys = JSON.parse(localStorage.getItem('removedChannels') || '[]');
-    // Optional: set this to your deployed Cloudflare Worker URL (no trailing slash)
-    // Example: "https://somoy-proxy.example.workers.dev"
-    const HLS_PROXY = '';
-
-    function proxifyChannels(channels) {
-        if (!HLS_PROXY || typeof location === 'undefined' || location.protocol !== 'https:') return channels;
-        return channels.map(ch => {
-            try {
-                if (ch && ch.url && ch.url.startsWith('http://')) {
-                    ch.url = `${HLS_PROXY}?url=${encodeURIComponent(ch.url)}`;
-                }
-            } catch (e) {}
-            return ch;
-        });
-    }
-
-    let allChannels = proxifyChannels(parseM3U(REAL_M3U)).filter(ch => !isChannelRemoved(ch));
+    let allChannels = parseM3U(REAL_M3U).filter(ch => !isChannelRemoved(ch));
     let currentPlayingIndex = 0;
     let previousChannelIndex = -1;
     let activeTab = 'channels';
@@ -1200,7 +1090,7 @@ http://cdn.tv-rds.workers.dev/TYCSPT.m3u8
             videojsPlayer = videojs(videoElement, {
                 fluid: true,
                 controls: true,
-                liveui: true,
+                liveui: false,
                 preload: 'auto',
                 controlBar: {
                     volumePanel: { inline: false },
@@ -1219,73 +1109,6 @@ http://cdn.tv-rds.workers.dev/TYCSPT.m3u8
     let savedVolume = localStorage.getItem('videoVolume');
     if (savedVolume) videoElement.volume = parseFloat(savedVolume);
     videoElement.addEventListener('volumechange', () => localStorage.setItem('videoVolume', videoElement.volume));
-    videoElement.addEventListener('timeupdate', () => {
-        if (isStreamLive) updateVideojsLiveUI(true);
-    });
-
-    function updateVideojsLiveUI(isLive) {
-        const container = (videojsPlayer && videojsPlayer.el()) || videoElement.parentElement;
-        if (!container) return;
-
-        const currentTime = container.querySelector('.vjs-current-time');
-        const currentTimeDisplay = container.querySelector('.vjs-current-time-display');
-        const currentTimeNodes = container.querySelectorAll('.vjs-current-time, .vjs-current-time-display');
-        const statusTimeNodes = container.querySelectorAll('.vjs-duration, .vjs-duration-display, .vjs-remaining-time, .vjs-remaining-time-display, .vjs-time-divider');
-
-        const setLiveText = (el) => {
-            if (!el) return;
-            el.textContent = 'LIVE';
-            el.classList.add('live-timestamp');
-            el.setAttribute('data-live-text', 'LIVE');
-            el.style.color = 'transparent';
-            el.style.textShadow = 'none';
-            el.style.position = 'relative';
-            el.style.overflow = 'visible';
-            el.querySelectorAll('*').forEach(child => {
-                child.style.color = 'transparent';
-                child.style.textShadow = 'none';
-            });
-        };
-
-        const clearLiveText = (el) => {
-            if (!el) return;
-            if (el.textContent === 'LIVE') {
-                el.textContent = '00:00';
-            }
-            el.classList.remove('live-timestamp');
-            el.removeAttribute('data-live-text');
-            el.style.color = '';
-            el.style.textShadow = '';
-            el.style.position = '';
-            el.style.overflow = '';
-            el.querySelectorAll('*').forEach(child => {
-                child.style.color = '';
-                child.style.textShadow = '';
-            });
-        };
-
-        if (isLive) {
-            currentTimeNodes.forEach(node => setLiveText(node));
-            statusTimeNodes.forEach(node => node.style.display = 'none');
-        } else {
-            currentTimeNodes.forEach(node => clearLiveText(node));
-            statusTimeNodes.forEach(node => node.style.display = '');
-            clearLiveText(currentTimeDisplay || currentTime);
-        }
-
-        if (videojsPlayer && videojsPlayer.controlBar && videojsPlayer.controlBar.currentTimeDisplay) {
-            const internalCurrent = videojsPlayer.controlBar.currentTimeDisplay;
-            const el = internalCurrent && internalCurrent.el();
-            if (isLive) {
-                if (el) setLiveText(el);
-            } else if (el) {
-                clearLiveText(el);
-                if (typeof internalCurrent.update_ === 'function') {
-                    internalCurrent.update_();
-                }
-            }
-        }
-    }
 
     const qualityControl = document.getElementById('qualityControl');
     const qualitySelect = document.getElementById('qualitySelect');
@@ -1681,35 +1504,9 @@ http://cdn.tv-rds.workers.dev/TYCSPT.m3u8
 
     // Keep brand overlay visible when any element enters fullscreen
     const brandOverlay = document.getElementById('playerBrandOverlay');
-    let liveBadgeInterval = null;
 
     function setLiveState(isLive) {
         isStreamLive = isLive;
-        try {
-            const infoLive = document.querySelector('.player-info-overlay .live-badge');
-            const infoLiveText = infoLive && infoLive.querySelector('.live-badge-text');
-            const playerLiveLabel = document.getElementById('playerLiveLabel');
-            if (infoLive) {
-                infoLive.style.display = isLive ? 'inline-flex' : 'none';
-                if (isLive) {
-                    if (infoLiveText) infoLiveText.textContent = 'LIVE';
-                    if (liveBadgeInterval) {
-                        clearInterval(liveBadgeInterval);
-                        liveBadgeInterval = null;
-                    }
-                } else {
-                    if (infoLiveText) infoLiveText.textContent = 'LIVE';
-                    if (liveBadgeInterval) {
-                        clearInterval(liveBadgeInterval);
-                        liveBadgeInterval = null;
-                    }
-                }
-            }
-            if (playerLiveLabel) {
-                playerLiveLabel.style.display = isLive ? 'inline-flex' : 'none';
-            }
-        } catch (e) {}
-        updateVideojsLiveUI(isLive);
     }
     document.addEventListener('fullscreenchange', () => {
         try {
