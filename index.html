@@ -1167,7 +1167,23 @@ http://103.151.60.188:1111/Somoy-TV-SD-700kb/tracks-v1a1/mono.m3u8
     }
 
     const removedChannelKeys = JSON.parse(localStorage.getItem('removedChannels') || '[]');
-    let allChannels = parseM3U(REAL_M3U).filter(ch => !isChannelRemoved(ch));
+    // Optional: set this to your deployed Cloudflare Worker URL (no trailing slash)
+    // Example: "https://somoy-proxy.example.workers.dev"
+    const HLS_PROXY = '';
+
+    function proxifyChannels(channels) {
+        if (!HLS_PROXY || typeof location === 'undefined' || location.protocol !== 'https:') return channels;
+        return channels.map(ch => {
+            try {
+                if (ch && ch.url && ch.url.startsWith('http://')) {
+                    ch.url = `${HLS_PROXY}?url=${encodeURIComponent(ch.url)}`;
+                }
+            } catch (e) {}
+            return ch;
+        });
+    }
+
+    let allChannels = proxifyChannels(parseM3U(REAL_M3U)).filter(ch => !isChannelRemoved(ch));
     let currentPlayingIndex = 0;
     let previousChannelIndex = -1;
     let activeTab = 'channels';
